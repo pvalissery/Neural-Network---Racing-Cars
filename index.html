@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JS Self-Driving AI</title>
+    <style>
+        body { margin: 0; background: #222; overflow: hidden; display: flex; justify-content: center; }
+        canvas { background: #333; }
+        .controls { position: absolute; top: 10px; left: 10px; z-index: 10; }
+        button { padding: 10px; margin-right: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="controls">
+        <button onclick="saveAndRestart()">Save & Next Gen</button>
+        <button onclick="clearBrain()">Trash Brain</button>
+    </div>
+    
+    <canvas id="simulationCanvas"></canvas>
+
+    <!-- Load scripts in order of dependency -->
+    <script src="network.js"></script>
+    <script src="genetic.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
