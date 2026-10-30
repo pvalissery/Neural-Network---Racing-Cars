@@ -5,21 +5,25 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>JS Self-Driving AI</title>
     <style>
-        body { margin: 0; background: #222; overflow: hidden; display: flex; justify-content: center; }
+        body { margin: 0; background: #222; overflow: hidden; display: flex; justify-content: center; font-family: sans-serif;}
         canvas { background: #333; }
-        .controls { position: absolute; top: 10px; left: 10px; z-index: 10; }
-        button { padding: 10px; margin-right: 5px; cursor: pointer; }
+        .controls { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); padding: 15px; border-radius: 8px; color: white;}
+        button { padding: 10px; margin-bottom: 10px; cursor: pointer; width: 100%; font-weight: bold;}
+        .slider-row { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 14px;}
+        input[type=range] { width: 100px; }
     </style>
 </head>
 <body>
     <div class="controls">
-        <button onclick="saveAndRestart()">Save & Next Gen</button>
-        <button onclick="clearBrain()">Trash Brain</button>
+        <button onclick="saveAndRestart()">Spawn Next Gen</button>
+        <button onclick="clearBrain()">Trash Brains</button>
+        <div id="sliderPanel">
+            <!-- JS will inject the 5 color-coded sliders here -->
+        </div>
     </div>
     
     <canvas id="simulationCanvas"></canvas>
 
-    <!-- Load scripts in order of dependency -->
     <script src="network.js"></script>
     <script src="genetic.js"></script>
     <script src="script.js"></script>
