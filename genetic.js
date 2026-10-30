@@ -1,11 +1,10 @@
 // genetic.js
 
 class GeneticAlgorithm {
-    static getBestCar(cars) {
-        // Assuming your track goes upwards (negative Y axis)
-        // Fitness = minimum Y value (furthest distance traveled)
-        return cars.find(
-            c => c.y === Math.min(...cars.map(car => car.y))
+        static getBestCar(cars) {
+        // Fitness = Maximum distance travelled (odometer)
+        return cars.reduce((best, current) => 
+            current.odometer > best.odometer ? current : best, cars[0]
         );
     }
 
