@@ -44,8 +44,8 @@ function isObstacle(x, y) {
     const g = trackImageData.data[index + 1];
     const b = trackImageData.data[index + 2];
 
-    // Tolerance to handle gradients and shadows on the track
-    const tolerance = 60; 
+    // Increased tolerance to 85 to handle gradient shadows and lane markings better
+    const tolerance = 85; 
     if (Math.abs(r - trackColor.r) > tolerance || 
         Math.abs(g - trackColor.g) > tolerance || 
         Math.abs(b - trackColor.b) > tolerance) {
@@ -83,8 +83,8 @@ class Car {
             this.#move();
             this.#updateSensors();
             
-            // Crash if center point touches an obstacle or sensors trigger too close
-            if (isObstacle(this.x, this.y) || this.sensorReadings.some(r => r && r.offset < 0.1)) {
+            // Now the car only crashes if its center pixel hits an obstacle
+            if (isObstacle(this.x, this.y)) {
                 this.crashed = true;
             }
 
