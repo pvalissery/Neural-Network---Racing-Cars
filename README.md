@@ -1,4 +1,4 @@
-# Neural-Network Racing Cars 
+# Neural-Network for teaching cars how to race
 
 **[Live Demo](https://pvalissery.github.io/Neural-Network---Racing-Cars/)**
 
