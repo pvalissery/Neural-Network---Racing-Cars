@@ -1,57 +1,92 @@
 // script.js
-
 const canvas = document.getElementById("simulationCanvas");
-canvas.width = 800;
-canvas.height = 600;
-const ctx = canvas.getContext("2d");
+const ctx = canvas.getContext("2d", { willReadFrequently: true });
 
-// The 5 fixed colors for our population
-const CAR_COLORS = ["#FF3366", "#33FF66", "#3366FF", "#FFFF33", "#FF9933"];
+let trackImage = null;
+let trackImageData = null;
+let trackColor = null; // Stored when you set the start point
 
-// Utility Math for Sensors
-function getIntersection(A, B, C, D) { 
-    const tTop = (D.x - C.x) * (A.y - C.y) - (D.y - C.y) * (A.x - C.x);
-    const uTop = (C.y - A.y) * (A.x - B.x) - (C.x - A.x) * (A.y - B.y);
-    const bottom = (D.y - C.y) * (B.x - A.x) - (D.x - C.x) * (B.y - A.y);
-    
-    if (bottom !== 0) {
-        const t = tTop / bottom;
-        const u = uTop / bottom;
-        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
-            return { x: lerp(A.x, B.x, t), y: lerp(A.y, B.y, t), offset: t };
-        }
+let startX = null;
+let startY = null;
+let cars = [];
+const POPULATION_SIZE = 600;
+let selectedParent = null;
+let isRunning = false;
+
+// Handle Image Upload
+document.getElementById('trackUpload').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+            // Resize canvas to fit image while keeping it manageable
+            canvas.width = img.width > 1000 ? 1000 : img.width;
+            canvas.height = img.height * (canvas.width / img.width);
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            
+            trackImage = img;
+            trackImageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            document.getElementById('status').innerHTML = "Track loaded!<br>Click on the grey road to set your starting point.";
+        };
+        img.src = event.target.result;
+    };
+    reader.readAsDataURL(file);
+});
+
+// Utility to check if a pixel is an obstacle
+function isObstacle(x, y) {
+    if (!trackImageData || !trackColor) return true;
+    if (x < 0 || x >= canvas.width || y < 0 || y >= canvas.height) return true;
+
+    const index = (Math.floor(y) * trackImageData.width + Math.floor(x)) * 4;
+    const r = trackImageData.data[index];
+    const g = trackImageData.data[index + 1];
+    const b = trackImageData.data[index + 2];
+
+    // Tolerance to handle gradients and shadows on the track
+    const tolerance = 60; 
+    if (Math.abs(r - trackColor.r) > tolerance || 
+        Math.abs(g - trackColor.g) > tolerance || 
+        Math.abs(b - trackColor.b) > tolerance) {
+        return true; 
     }
-    return null;
+    return false;
 }
+
 function lerp(A, B, t) { return A + (B - A) * t; }
 
 class Car {
-    constructor(x, y, color) {
+    constructor(x, y) {
         this.x = x;
         this.y = y;
-        this.width = 20;
-        this.height = 30;
-        this.color = color; // Assign color
+        this.width = 15;
+        this.height = 25;
 
         this.speed = 0;
         this.acceleration = 0.2;
         this.maxSpeed = 4;
         this.friction = 0.05;
-        this.angle = 0; 
+        this.angle = -Math.PI / 2; // Start facing upwards
         this.crashed = false;
+        this.isChampion = false;
 
         this.rayCount = 5;
-        this.rayLength = 120;
+        this.rayLength = 100;
         this.raySpread = Math.PI / 2; 
         this.sensorReadings = [];
         this.brain = new NeuralNetwork([this.rayCount, 6, 4]); 
     }
 
-    update(trackBorders) {
+    update() {
         if (!this.crashed) {
             this.#move();
-            this.#updateSensors(trackBorders);
-            if (this.sensorReadings.some(r => r && r.offset < 0.1)) this.crashed = true;
+            this.#updateSensors();
+            
+            // Crash if center point touches an obstacle or sensors trigger too close
+            if (isObstacle(this.x, this.y) || this.sensorReadings.some(r => r && r.offset < 0.1)) {
+                this.crashed = true;
+            }
 
             const inputs = this.sensorReadings.map(s => s ? 1 - s.offset : 0);
             const controls = NeuralNetwork.feedForward(inputs, this.brain);
@@ -79,111 +114,141 @@ class Car {
         this.y -= Math.cos(this.angle) * this.speed;
     }
 
-    #updateSensors(trackBorders) {
+    #updateSensors() {
         this.sensorReadings = [];
         for (let i = 0; i < this.rayCount; i++) {
             const rayAngle = lerp(this.raySpread / 2, -this.raySpread / 2, this.rayCount === 1 ? 0.5 : i / (this.rayCount - 1)) + this.angle;
-            const start = { x: this.x, y: this.y };
-            const end = { x: this.x - Math.sin(rayAngle) * this.rayLength, y: this.y - Math.cos(rayAngle) * this.rayLength };
-            let closest = null;
-            trackBorders.forEach(border => {
-                for (let j = 0; j < border.length - 1; j++) {
-                    const touch = getIntersection(start, end, border[j], border[j + 1]);
-                    if (touch && (!closest || touch.offset < closest.offset)) closest = touch;
+            
+            let distance = 0;
+            let hit = false;
+            let currentX = this.x;
+            let currentY = this.y;
+
+            // Step pixel by pixel to check for obstacles
+            while (distance < this.rayLength) {
+                currentX -= Math.sin(rayAngle);
+                currentY -= Math.cos(rayAngle);
+                distance++;
+
+                if (isObstacle(currentX, currentY)) {
+                    hit = true;
+                    break;
                 }
-            });
-            this.sensorReadings.push(closest);
+            }
+
+            if (hit) {
+                this.sensorReadings.push({ x: currentX, y: currentY, offset: distance / this.rayLength });
+            } else {
+                this.sensorReadings.push(null);
+            }
         }
     }
 
     draw(ctx) {
-        if (!this.crashed) {
+        // Only draw rays for the champion to keep performance smooth with 600 cars
+        if (this.isChampion && !this.crashed) {
             this.sensorReadings.forEach((reading, i) => {
                 const rayAngle = lerp(this.raySpread / 2, -this.raySpread / 2, this.rayCount === 1 ? 0.5 : i / (this.rayCount - 1)) + this.angle;
                 const end = { x: this.x - Math.sin(rayAngle) * this.rayLength, y: this.y - Math.cos(rayAngle) * this.rayLength };
                 ctx.beginPath();
                 ctx.lineWidth = 2;
-                ctx.strokeStyle = "rgba(255,255,255,0.3)";
+                ctx.strokeStyle = "rgba(255, 215, 0, 0.5)"; // Gold rays
                 ctx.moveTo(this.x, this.y);
                 ctx.lineTo(reading ? reading.x : end.x, reading ? reading.y : end.y);
                 ctx.stroke();
             });
         }
+        
         ctx.save();
         ctx.translate(this.x, this.y);
         ctx.rotate(-this.angle);
-        ctx.fillStyle = this.crashed ? "#555" : this.color;
+        
+        if (this.crashed) {
+            ctx.fillStyle = "rgba(100, 100, 100, 0.3)";
+        } else if (this.isChampion) {
+            ctx.fillStyle = "gold"; // Highlight champion
+        } else {
+            ctx.fillStyle = "rgba(50, 150, 255, 0.4)"; // Normal alive cars
+        }
+        
         ctx.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
         ctx.restore();
     }
 }
 
-function createOvalTrack() {
-    const outer = [], inner = [];
-    const centerX = canvas.width / 2, centerY = canvas.height / 2;
-    for (let i = 0; i <= 24; i++) {
-        const angle = (i / 24) * Math.PI * 2;
-        outer.push({ x: centerX + Math.cos(angle) * 350, y: centerY + Math.sin(angle) * 250 });
-        inner.push({ x: centerX + Math.cos(angle) * 200, y: centerY + Math.sin(angle) * 100 });
+// Interactive Mouse Controls
+canvas.addEventListener('mousedown', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    if (!trackImageData) return;
+
+    if (!isRunning) {
+        // Set Start Point and sample the track color
+        startX = mouseX;
+        startY = mouseY;
+        
+        const index = (Math.floor(mouseY) * trackImageData.width + Math.floor(mouseX)) * 4;
+        trackColor = {
+            r: trackImageData.data[index],
+            g: trackImageData.data[index + 1],
+            b: trackImageData.data[index + 2]
+        };
+
+        document.getElementById('status').innerHTML = "Simulation running.<br>Click any living car to set it as the parent for the next generation.";
+        cars = GeneticAlgorithm.populateNextGeneration(POPULATION_SIZE, startX, startY, null);
+        isRunning = true;
+        animate();
+    } else {
+        // Select best car visually by clicking near it
+        let minDist = Infinity;
+        let closest = null;
+        cars.forEach(car => {
+            let d = Math.hypot(car.x - mouseX, car.y - mouseY);
+            if (d < minDist) {
+                minDist = d;
+                closest = car;
+            }
+        });
+        
+        if (closest) {
+            cars.forEach(c => c.isChampion = false);
+            closest.isChampion = true;
+            selectedParent = closest;
+        }
     }
-    return [outer, inner];
-}
-const trackBorders = createOvalTrack();
-
-// Setup Population of exactly 5
-const POPULATION_SIZE = 5;
-const startX = canvas.width / 2;
-const startY = canvas.height / 2 + 175; 
-let cars = GeneticAlgorithm.populateNextGeneration(POPULATION_SIZE, startX, startY, CAR_COLORS);
-cars.forEach(car => car.angle = -Math.PI / 2);
-
-// Inject Sliders into UI
-const sliderPanel = document.getElementById("sliderPanel");
-CAR_COLORS.forEach((color, i) => {
-    // Default the first car to 100 influence, others to 0, just to start
-    const defaultVal = i === 0 ? 100 : 0;
-    sliderPanel.innerHTML += `
-        <div class="slider-row">
-            <span style="color: ${color}; text-shadow: 1px 1px 2px black;">Car ${i + 1}</span>
-            <input type="range" id="influence-${i}" min="0" max="100" value="${defaultVal}">
-        </div>
-    `;
 });
 
-function animate() {
-    canvas.height = window.innerHeight;
-    canvas.width = window.innerWidth;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function spawnNextGen() {
+    if (!startX || cars.length === 0) return;
+    
+    // If a parent isn't explicitly clicked, fallback to any car that survived
+    let parentBrain = selectedParent ? selectedParent.brain : cars[0].brain; 
+    
+    cars = GeneticAlgorithm.populateNextGeneration(POPULATION_SIZE, startX, startY, parentBrain);
+    selectedParent = null; // Reset selection for the new batch
+}
 
-    ctx.strokeStyle = "white";
-    ctx.lineWidth = 4;
-    trackBorders.forEach(border => {
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (trackImage) {
+        ctx.drawImage(trackImage, 0, 0, canvas.width, canvas.height);
+    }
+
+    // Draw start point marker
+    if (startX) {
+        ctx.fillStyle = "lime";
         ctx.beginPath();
-        for (let i = 0; i < border.length - 1; i++) {
-            ctx.moveTo(border[i].x, border[i].y);
-            ctx.lineTo(border[i+1].x, border[i+1].y);
-        }
-        ctx.stroke();
-    });
+        ctx.arc(startX, startY, 5, 0, Math.PI * 2);
+        ctx.fill();
+    }
 
     cars.forEach(car => {
-        car.update(trackBorders);
+        car.update();
         car.draw(ctx);
     });
 
     requestAnimationFrame(animate);
 }
-
-// UI Triggers
-function saveAndRestart() {
-    const sliderValues = CAR_COLORS.map((_, i) => document.getElementById(`influence-${i}`).value);
-    GeneticAlgorithm.saveManualBrains(cars, sliderValues);
-    location.reload();
-}
-
-function clearBrain() {
-    localStorage.removeItem("breedingPool");
-    location.reload();
-}
-
-animate();
