@@ -4,7 +4,7 @@
 
 ![Simulation Screenshot](screenshot.png)
 
-This is a 2D self-driving car simulation built using JavaScript and the HTML5 Canvas API. No external machine learning libraries, no bloated dependencies. I wanted to learn how to code a teachable network and I wrote the code based on a bunch of youtube tutorials with modifications, notably the ability to upload any picture and use it to train the model. This is a  Multi-Layer Perceptron neural network and a genetic algorithm trying to figure out how to drive without smashing into walls.
+This is a 2D self-driving car simulation built using JavaScript and the HTML5 Canvas API. No external machine learning libraries needed. I wanted to learn how to code a teachable network and I wrote the code based on a bunch of youtube tutorials with modifications. This is a  Multi-Layer Perceptron neural network and a genetic algorithm trying to figure out how to drive without smashing into walls.
 
 ### How It Works
 The simulation drops a population of 600 cars onto a track. Each car is equipped with a 5-ray sensor array that detects obstacles pixel-by-pixel. 
