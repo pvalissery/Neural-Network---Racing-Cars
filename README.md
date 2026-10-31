@@ -9,7 +9,7 @@ This is a 2D self-driving car simulation built using JavaScript and the HTML5 Ca
 ### How It Works
 The simulation drops a population of 600 cars onto a track. Each car is equipped with a 5-ray sensor array that detects obstacles pixel-by-pixel. 
 
-1. **Upload a Track:** Upload any custom track image. The script reads the canvas pixel data to dynamically figure out what is road and what is an obstacle.
+1. **Upload a Track:** Upload any custom track image. [This is the picture that I used for training.](https://www.vecteezy.com/vector-art/13868065-race-track-for-cars-top-view-asphalted-road-loop) The script reads the canvas pixel data to dynamically figure out what is road and what is an obstacle.
 2. **Set the Start Point:** Click anywhere on the track to spawn generation 1. 
 3. **Play God (Selection):** Watch them drive. Most will crash immediately. Find the one that makes it the furthest and click it to lock it in as the "parent"
 4. **Evolve:** Hit the "Spawn Next Generation" button. The new batch of cars will clone the parent's brain and apply random mutations to the weights and biases.
