@@ -12,6 +12,7 @@ let cars = [];
 const POPULATION_SIZE = 600;
 let selectedParent = null;
 let isRunning = false;
+let learningCycles = 1;
 
 // Handle Image Upload
 document.getElementById('trackUpload').addEventListener('change', (e) => {
@@ -177,6 +178,7 @@ class Car {
 }
 
 // Interactive Mouse Controls
+// Interactive Mouse Controls
 canvas.addEventListener('mousedown', (e) => {
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
@@ -196,7 +198,9 @@ canvas.addEventListener('mousedown', (e) => {
             b: trackImageData.data[index + 2]
         };
 
-        document.getElementById('status').innerHTML = "Simulation running.<br>Click any living car to set it as the parent for the next generation.";
+        document.getElementById('status').innerHTML = "Simulation running.<br>Click any living car to select it as the parent.";
+        document.getElementById('generationCounter').style.display = "block";
+        
         cars = GeneticAlgorithm.populateNextGeneration(POPULATION_SIZE, startX, startY, null);
         isRunning = true;
         animate();
@@ -216,6 +220,7 @@ canvas.addEventListener('mousedown', (e) => {
             cars.forEach(c => c.isChampion = false);
             closest.isChampion = true;
             selectedParent = closest;
+            document.getElementById('status').innerHTML = "Parent selected! Ready for next generation.";
         }
     }
 });
@@ -223,11 +228,29 @@ canvas.addEventListener('mousedown', (e) => {
 function spawnNextGen() {
     if (!startX || cars.length === 0) return;
     
-    // If a parent isn't explicitly clicked, fallback to any car that survived
+    // If a parent isn't explicitly clicked, fallback to the current selected parent or the first car
     let parentBrain = selectedParent ? selectedParent.brain : cars[0].brain; 
     
     cars = GeneticAlgorithm.populateNextGeneration(POPULATION_SIZE, startX, startY, parentBrain);
     selectedParent = null; // Reset selection for the new batch
+    
+    // Increment and update UI
+    learningCycles++;
+    document.getElementById('generationCounter').innerText = `Learning Cycles: ${learningCycles}`;
+    document.getElementById('status').innerHTML = "New generation spawned.<br>Click a car to select the next parent.";
+}
+
+function resetLearning() {
+    if (!startX || !isRunning) return;
+    
+    // Passing null trashes the brains and randomizes the weights completely
+    cars = GeneticAlgorithm.populateNextGeneration(POPULATION_SIZE, startX, startY, null);
+    selectedParent = null;
+    
+    // Reset counter
+    learningCycles = 1;
+    document.getElementById('generationCounter').innerText = `Learning Cycles: ${learningCycles}`;
+    document.getElementById('status').innerHTML = "Brains trashed. Learning reset to random mutations.";
 }
 
 function animate() {
